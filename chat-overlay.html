@@ -1,0 +1,343 @@
+<!-- 
+This is a simple boilerplate for creating custom Social Stream Ninja overlay pages and other integrations with the Social Stream Ninja IFRAME API.
+Messages can be sent to and from the API.
+By default, the API is configured in a consume-all messages mode, which is useful for most applications.
+Messages contain many fields, but the chatname, chatmessage, chatimg, and type are the primary ones.
+ -->
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Template - Social Stream Ninja</title>
+    <link rel="icon" href="./favicon.ico" />
+    <link rel="preload" href="./thirdparty/NotoColorEmoji.ttf" as="font" type="font/ttf" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;500;600&family=Google+Sans+Display:wght@500;700&display=swap" rel="stylesheet">
+    <style>
+        /* ── Material Design 3 · Orange Space Theme ── */
+        :root {
+            --md-primary:         #FF6D00;
+            --md-primary-light:   #FF9E40;
+            --md-surface-2:       #2E231A;
+            --md-outline-variant: #3D2E22;
+            --md-on-surface:      #EDE0D4;
+            --md-on-surface-var:  #B09880;
+        }
+
+        body {
+            font-family: 'Google Sans', Arial, sans-serif;
+            background-color: #0000;
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-end;
+            align-items: flex-start;
+            height: 100vh;
+            margin: 0;
+            padding: 16px 20px;
+            gap: 10px;
+            overflow: hidden;
+        }
+
+        .chat-bubble {
+            display: flex;
+            align-items: flex-end;
+            gap: 10px;
+            max-width: 420px;
+            opacity: 0;
+            transform: translateX(-48px) scale(0.94);
+            animation: bubbleSlideIn 0.42s cubic-bezier(0.34, 1.4, 0.64, 1) forwards;
+        }
+
+        @keyframes bubbleSlideIn {
+            0%   { opacity: 0; transform: translateX(-48px) scale(0.94); }
+            60%  { opacity: 1; transform: translateX(4px)   scale(1.02); }
+            100% { opacity: 1; transform: translateX(0)     scale(1);    }
+        }
+
+        .bubble-avatar {
+            width: 38px;
+            height: 38px;
+            border-radius: 50%;
+            object-fit: cover;
+            flex-shrink: 0;
+            border: 2px solid var(--md-outline-variant);
+            background: var(--md-surface-2);
+            box-shadow: 0 2px 6px rgba(0,0,0,.5);
+        }
+
+        .bubble-avatar-placeholder {
+            width: 38px;
+            height: 38px;
+            border-radius: 50%;
+            flex-shrink: 0;
+            background: linear-gradient(135deg, #C43C00, #FF6D00);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 15px;
+            font-weight: 600;
+            color: #fff;
+            border: 2px solid var(--md-outline-variant);
+            box-shadow: 0 2px 6px rgba(0,0,0,.5);
+        }
+
+        .bubble-card {
+            background: var(--md-surface-2);
+            border: 1px solid var(--md-outline-variant);
+            border-radius: 24px 24px 24px 6px;
+            padding: 10px 14px;
+            max-width: 340px;
+            box-shadow: 0 3px 8px rgba(0,0,0,.45), 0 1px 3px rgba(0,0,0,.35);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .bubble-card::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(110deg, transparent 20%, rgba(255,109,0,0.12) 50%, transparent 80%);
+            transform: translateX(-100%);
+            animation: shimmer 0.65s ease forwards 0.1s;
+            pointer-events: none;
+        }
+
+        @keyframes shimmer {
+            to { transform: translateX(200%); }
+        }
+
+        .bubble-card .platform-strip {
+            position: absolute;
+            top: 0; right: 0;
+            width: 3px;
+            height: 100%;
+            border-radius: 0 24px 24px 0;
+            background: var(--strip-color, var(--md-primary));
+        }
+
+        .bubble-meta {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            margin-bottom: 4px;
+        }
+
+        .bubble-name {
+            font-family: 'Google Sans Display', sans-serif;
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--md-primary-light);
+            line-height: 1;
+        }
+
+        .bubble-platform-icon {
+            font-size: 10px;
+            color: var(--md-on-surface-var);
+        }
+
+        .bubble-donation {
+            font-size: 11px;
+            font-weight: 600;
+            color: #FFD54F;
+            background: rgba(255,213,79,0.15);
+            border-radius: 999px;
+            padding: 1px 7px;
+            border: 1px solid rgba(255,213,79,0.3);
+        }
+
+        .bubble-message {
+            font-size: 14.5px;
+            font-weight: 400;
+            color: var(--md-on-surface);
+            line-height: 1.5;
+            word-break: break-word;
+        }
+
+        .bubble-contentimg {
+            margin-top: 8px;
+            border-radius: 12px;
+            max-width: 100%;
+            max-height: 160px;
+            object-fit: cover;
+            display: block;
+            border: 1px solid var(--md-outline-variant);
+        }
+
+        .bubble-card.is-donation {
+            background: linear-gradient(135deg, #2A1A05 0%, #3D2510 100%);
+            border-color: rgba(255,109,0,0.4);
+            box-shadow: 0 4px 20px rgba(255,109,0,0.25), 0 2px 6px rgba(0,0,0,.4);
+        }
+
+        .platform-twitch    { --strip-color: #9146FF; }
+        .platform-youtube   { --strip-color: #FF0000; }
+        .platform-facebook  { --strip-color: #1877F2; }
+        .platform-tiktok    { --strip-color: #69C9D0; }
+        .platform-instagram { --strip-color: #E1306C; }
+        .platform-kick      { --strip-color: #53FC18; }
+        .platform-x,
+        .platform-twitter   { --strip-color: #1D9BF0; }
+        .platform-discord   { --strip-color: #5865F2; }
+
+        .bubble-exit {
+            animation: bubbleFadeOut 0.35s ease forwards !important;
+        }
+
+        @keyframes bubbleFadeOut {
+            to { opacity: 0; transform: translateX(-20px) scale(0.95); }
+        }
+    </style>
+</head>
+<body>
+    <script>
+        const urlParams = new URLSearchParams(window.location.search);
+
+        const MAX_MESSAGES  = 12;
+        const BUBBLE_TIMEOUT = 18000;
+
+        const platformMeta = {
+            twitch:    { icon: '🟣', cls: 'platform-twitch'    },
+            youtube:   { icon: '🔴', cls: 'platform-youtube'   },
+            facebook:  { icon: '🔵', cls: 'platform-facebook'  },
+            tiktok:    { icon: '🩵', cls: 'platform-tiktok'    },
+            instagram: { icon: '💗', cls: 'platform-instagram' },
+            kick:      { icon: '🟢', cls: 'platform-kick'      },
+            x:         { icon: '🐦', cls: 'platform-x'         },
+            twitter:   { icon: '🐦', cls: 'platform-twitter'   },
+            discord:   { icon: '💬', cls: 'platform-discord'   },
+        };
+
+        function processData(data) {
+            console.log(data);
+
+            if (data.content) {
+                data = data.content;
+            }
+            if (data.chatmessage) {
+
+                // data.chatimg      - avatar of user
+                // data.chatname     - name of user
+                // data.chatmessage  - a text message from user
+                // data.contentimg   - a link to a media file
+                // data.type         - what site, like twitch or facebook, that the message came from
+                // data.hasDonation  - an possible donation value if there was a donation attached, with unit.
+
+                const pm = platformMeta[(data.type || '').toLowerCase()] || null;
+
+                const wrap = document.createElement('div');
+                wrap.className = 'chat-bubble' + (pm ? ' ' + pm.cls : '');
+
+                let avatar;
+                if (data.chatimg) {
+                    avatar = document.createElement('img');
+                    avatar.className = 'bubble-avatar';
+                    avatar.src = data.chatimg;
+                    avatar.alt = '';
+                    avatar.onerror = () => {
+                        const ph = document.createElement('div');
+                        ph.className = 'bubble-avatar-placeholder';
+                        ph.textContent = (data.chatname || '?').charAt(0).toUpperCase();
+                        avatar.replaceWith(ph);
+                    };
+                } else {
+                    avatar = document.createElement('div');
+                    avatar.className = 'bubble-avatar-placeholder';
+                    avatar.textContent = (data.chatname || '?').charAt(0).toUpperCase();
+                }
+
+                const card = document.createElement('div');
+                card.className = 'bubble-card' + (data.hasDonation ? ' is-donation' : '');
+
+                const strip = document.createElement('div');
+                strip.className = 'platform-strip';
+                card.appendChild(strip);
+
+                const meta = document.createElement('div');
+                meta.className = 'bubble-meta';
+
+                const nameEl = document.createElement('span');
+                nameEl.className = 'bubble-name';
+                nameEl.textContent = data.chatname || 'Anonymous';
+                meta.appendChild(nameEl);
+
+                if (pm) {
+                    const iconEl = document.createElement('span');
+                    iconEl.className = 'bubble-platform-icon';
+                    iconEl.textContent = pm.icon;
+                    meta.appendChild(iconEl);
+                }
+
+                if (data.hasDonation) {
+                    const don = document.createElement('span');
+                    don.className = 'bubble-donation';
+                    don.textContent = '💛 ' + data.hasDonation;
+                    meta.appendChild(don);
+                }
+
+                card.appendChild(meta);
+
+                const msgEl = document.createElement('div');
+                msgEl.className = 'bubble-message';
+                msgEl.textContent = data.chatmessage;
+                card.appendChild(msgEl);
+
+                if (data.contentimg) {
+                    const img = document.createElement('img');
+                    img.className = 'bubble-contentimg';
+                    img.src = data.contentimg;
+                    img.alt = '';
+                    card.appendChild(img);
+                }
+
+                wrap.appendChild(avatar);
+                wrap.appendChild(card);
+                document.body.appendChild(wrap);
+
+                const all = document.querySelectorAll('.chat-bubble');
+                if (all.length > MAX_MESSAGES) {
+                    const oldest = all[0];
+                    oldest.classList.add('bubble-exit');
+                    setTimeout(() => oldest.remove(), 350);
+                }
+
+                if (BUBBLE_TIMEOUT > 0) {
+                    setTimeout(() => {
+                        if (!wrap.parentNode) return;
+                        wrap.classList.add('bubble-exit');
+                        setTimeout(() => wrap.remove(), 350);
+                    }, BUBBLE_TIMEOUT);
+                }
+            }
+        }
+
+        // we get the data via this embedded iFRAME.
+        const iframe = document.createElement("iframe");
+        const filename = "dock"; //new URL(window.location.href).pathname.split('/').pop().split('.')[0];
+        const password = urlParams.get('password') || 'false';
+        const lanonly = urlParams.has('lanonly') ? '&lanonly' : '';
+        iframe.src = "https://vdo.socialstream.ninja/?ln&salt=vdo.ninja&notmobile&password=" + encodeURIComponent(password) + lanonly + "&solo&view=" + urlParams.get('session') + "&novideo&noaudio&label="+filename+"&cleanoutput&room=" + urlParams.get('session');
+        iframe.style.width = "0px";
+        iframe.style.height = "0px";
+        iframe.style.position = "fixed";
+        iframe.style.left = "-100px";
+        iframe.style.top = "-100px";
+        iframe.id = "frame1";
+        document.body.appendChild(iframe);
+
+        const eventMethod = window.addEventListener ? "addEventListener" : "attachEvent";
+        const eventer = window[eventMethod];
+        const messageEvent = eventMethod === "attachEvent" ? "onmessage" : "message";
+
+        eventer(messageEvent, function (e) {
+            if (e.source != iframe.contentWindow) return;
+            if ("dataReceived" in e.data) {
+                if ("overlayNinja" in e.data.dataReceived) {
+                    processData(e.data.dataReceived.overlayNinja);
+                }
+            }
+        });
+    </script>
+</body>
+</html>
